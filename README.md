@@ -134,5 +134,75 @@ export const getUserById = async (id: string) => {
   const exisitingUser = await getUserByEmail(email)
 
 ```
+
 33. Now, for `login` we have to install nextauth v5
     `npm i next-auth@beta`
+34. Create `auth.ts` file in root directory for configuration
+35. Add following code to `auth.ts` file
+    - paste the code from website
+36. Create `app/api/auth/[...nextauth].ts` file and paste the code from the wesbite
+
+- remove the edge because prisma does not support it
+
+37. Add `AUTH_SECRET` in `.env` file
+
+- for the development mode we can use any string
+
+38. Go to see logs `http://localhost:3000/api/auth/providers`
+
+39. Create middleware in `middleware.ts` in root directory
+
+- `middleware.ts` file is nextjs specific file
+- update matcher to ` matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],` from clerk
+
+40. Create `auth.config.ts` file in root directory
+
+- paste the code from website
+
+41. Update `auth.ts` file
+
+```
+// * Comnfiguration for authentication
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
+import { db } from "./lib/database.connection";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+export const {
+  handlers: { GET, POST },
+  auth,
+} = NextAuth({
+  adapter: PrismaAdapter(db), // prisma adapter is supported on non edge
+  session: { strategy: "jwt" },
+  ...authConfig,
+});
+
+
+```
+
+42. Update `api/auth/[...nextauth].ts` file
+
+```
+// * middleware works on the edge
+
+import authConfig from "./auth.config";
+import NextAuth from "next-auth";
+
+const { auth } = NextAuth(authConfig);
+
+export default auth((req) => {
+  // req.auth
+});
+
+// Optionally, don't invoke Middleware on some paths
+export const config = {
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+};
+
+```
+
+43. Create `route.ts` file in root directory
+
+- this file will contain all types of routes
+
+44. Edit middleware.ts file
+    // cuurently here : 2:32:14
