@@ -414,5 +414,81 @@ interface Session {
 }
 
 ```
+
 #### Now you can see the role of the user in the session
 
+## Adding Google and Github providers
+
+56. Add google and github providers inside providers in `auth.config.ts` file from
+
+```
+import Github from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
+```
+
+```
+ Github({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+```
+
+57. Add secrets to env file
+
+    - `GOOGLE_CLIENT_ID`
+    - `GOOGLE_CLIENT_SECRET`
+    - `GITHUB_CLIENT_ID`
+    - `GITHUB_CLIENT_SECRET`
+
+58. Test google and github in `social.tsx`
+
+```
+"use client";
+
+import { signIn } from "next-auth/react"; // this is we have to import when in client side
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
+// import { useSearchParams } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { DEFAULT_LOGIN_REDIRECT } from "@/route";
+
+export const Social = () => {
+    // const searchParams = useSearchParams();
+    // const callbackUrl = searchParams.get("callbackUrl");
+
+    const onClick = (provider: "google" | "github") => {
+        signIn(provider, {
+            callbackUrl: DEFAULT_LOGIN_REDIRECT,
+        });
+    }
+
+    return (
+        <div className="flex items-center w-full gap-x-2">
+            <Button
+                size="lg"
+                className="w-full"
+                variant="outline"
+                onClick={() => onClick("google")}
+            >
+                <FcGoogle className="h-5 w-5" />
+            </Button>
+            <Button
+                size="lg"
+                className="w-full"
+                variant="outline"
+                onClick={() => onClick("github")}
+            >
+                <FaGithub className="h-5 w-5" />
+            </Button>
+        </div>
+    );
+};
+
+```
+
+59. 
