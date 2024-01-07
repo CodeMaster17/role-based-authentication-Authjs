@@ -11,19 +11,31 @@ import {
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
-  // req.auth
   const { nextUrl } = req;
-  const isLoggeedIn = !!req.auth;
+  const isLoggedIn = !!req.auth;
 
   const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
   const isAuthRoute = authRoutes.includes(nextUrl.pathname);
   const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
 
+  // order of if condition matters here
   if (isApiAuthRoute) {
     return null;
   }
 
-  // TODO ; start from here
+  if (isAuthRoute) {
+    if (isLoggedIn) {
+      return Response.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
+    } else {
+      return null;
+    }
+  }
+
+  if (!isLoggedIn && !isPublicRoute) {
+    return Response.redirect(new URL("/auth/login", nextUrl));
+  }
+
+  return null;
 });
 
 // Optionally, don't invoke Middleware on some paths

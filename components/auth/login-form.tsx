@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { startTransition, useState } from 'react'
 import { CardWrapper } from './card-wrapper'
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,9 @@ import { FormError } from '../form-error';
 import { Login } from '@/actions/auth/login';
 const LoginForm = () => {
 
+    const [error, setError] = useState<string | undefined>("");
+    const [success, setSuccess] = useState<string | undefined>("");
+
     const form = useForm<z.infer<typeof LoginSchema>>({
         resolver: zodResolver(LoginSchema),
         defaultValues: {
@@ -30,8 +33,23 @@ const LoginForm = () => {
     })
 
     const onSubmit = (values: z.infer<typeof LoginSchema>) => {
-        Login(values)
-        console.log(values)
+        setError("");
+        setSuccess("");
+        startTransition(() => {
+            Login(values)
+                .then((data) => {
+                    if (data?.error) {
+                        form.reset();
+                        setError(data?.error);
+                    }
+
+                    if (data?.success) {
+                        form.reset();
+                        setSuccess(data.success);
+                    }
+                })
+                .catch(() => setError("Something went wrong"));
+        });
     }
 
     return (
@@ -88,8 +106,8 @@ const LoginForm = () => {
                             </FormItem>
                         )}
                     />
-                    <FormSuccess message="Login completed" />
-                    <FormError message="Invalid email" />
+                    <FormSuccess message={success} />
+                    <FormError message={error} />
 
 
                     <Button

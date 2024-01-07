@@ -205,4 +205,90 @@ export const config = {
 - this file will contain all types of routes
 
 44. Edit middleware.ts file
-    // cuurently here : 2:32:14
+
+    - add routes condition in `middleware.ts` file
+
+45. Do valdiations in `auth.config.ts` file
+
+46. Edit `auth.ts` file
+
+```
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth({
+  adapter: PrismaAdapter(db), // prisma adapter is supported on non edge
+  session: { strategy: "jwt" },
+  ...authConfig,
+});
+
+```
+
+47. Implement functionality in `login.ts` file
+
+```
+"use server"; // necessary in every auth action
+
+import * as z from "zod";
+import { LoginSchema } from "@/schema";
+import { signIn } from "@/auth";
+import { DEFAULT_LOGIN_REDIRECT } from "@/route";
+import { AuthError } from "next-auth";
+
+export const Login = async (values: z.infer<typeof LoginSchema>) => {
+  const validatedFields = LoginSchema.safeParse(values); // valdiating the input values
+  if (!validatedFields.success) {
+    return { error: "Invalid fields! " };
+  }
+  const { email, password } = validatedFields.data;
+  try {
+    await signIn("credentials", {
+      email,
+      password,
+      redirectTo: DEFAULT_LOGIN_REDIRECT,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return { error: "Invalid credentials!" };
+        default:
+          return { error: "Something went wrong!" };
+      }
+    }
+    throw error;
+  }
+};
+
+```
+
+48. Go to settings page and add logout button, and its functionality in `settings.tsx` file
+
+```
+import { auth, signOut } from '@/auth'
+import React from 'react'
+
+const Settings = async () => {
+    const user = await auth()
+    return (
+        <div>
+            {JSON.stringify(user)}
+            <form action={async () => {
+                'use server'
+                await signOut()
+            }}>
+                <button type='submit'>
+                    Singout
+                </button>
+            </form>
+        </div>
+    )
+}
+
+export default Settings
+
+```
+
+#### Login/Logout completed succesfully

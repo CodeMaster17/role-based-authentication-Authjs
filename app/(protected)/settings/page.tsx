@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth, signOut } from '@/auth'
 import React from 'react'
 
 const Settings = async () => {
@@ -6,6 +6,14 @@ const Settings = async () => {
     return (
         <div>
             {JSON.stringify(user)}
+            <form action={async () => {
+                'use server'
+                await signOut()
+            }}>
+                <button type='submit'>
+                    Singout
+                </button>
+            </form>
         </div>
     )
 }

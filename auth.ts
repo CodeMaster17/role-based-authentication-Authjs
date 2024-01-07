@@ -6,6 +6,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 export const {
   handlers: { GET, POST },
   auth,
+  signIn,
+  signOut,
 } = NextAuth({
   adapter: PrismaAdapter(db), // prisma adapter is supported on non edge
   session: { strategy: "jwt" },
