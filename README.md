@@ -150,6 +150,8 @@ export const getUserById = async (id: string) => {
 
 38. Go to see logs `http://localhost:3000/api/auth/providers`
 
+## middlewares and login
+
 39. Create middleware in `middleware.ts` in root directory
 
 - `middleware.ts` file is nextjs specific file
@@ -292,3 +294,125 @@ export default Settings
 ```
 
 #### Login/Logout completed succesfully
+
+## Callbacks
+
+49. add callbacks in `auth.ts` - to check for tokens
+    `export const {
+handlers: { GET, POST },
+auth,
+signIn,
+signOut,
+} = NextAuth({
+callbacks: {
+async jwt({ token }) {
+console.log({ token });
+return token;
+},
+},
+adapter: PrismaAdapter(db), // prisma adapter is supported on non edge
+session: { strategy: "jwt" },
+...authConfig,
+});`
+
+50. update callback in `auth.ts` file
+
+```
+ async session({ token, session }) {
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
+      }
+
+      return session;
+    },
+```
+
+51. Update schema in `schema.prisma` file
+
+```
+role UserRole @default(USER)
+```
+
+52. Close the server
+    - run command `npx prisma generate` and then `npx prisma migrate reset` and then `npx prisma db push`
+    - you can check the db status, users would be 0
+
+### Role based authentication is developed with help of middleware and token in callback
+
+### Query is much faste in case of finding by id rather than by an email
+
+53. Update the callback in `auth.ts` file
+
+```
+async session({ token, session }) {
+      console.log({
+        sessionToken: token,
+      });
+
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
+      }
+
+      return session;
+    },
+
+    async jwt({ token }) {
+      // fecthing the user
+
+      if (!token.sub) return token;
+      const exisitingUser = await getUserById(token.sub);
+      if (!exisitingUser) return token;
+      token.role = exisitingUser.role;
+
+      return token;
+    },
+
+```
+
+#### you must be start seeing the role in the token
+
+54. Update session function
+
+```
+async session({ token, session }) {
+
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
+      }
+
+      if(token.role && session.user){
+        session.user.role = token.role  // you will be seeing here a typescript error
+      }
+
+      return session;
+    },
+```
+
+55. Update in `auth.ts` file
+
+```
+if (token.role && session.user) {
+        session.user.role = token.role as UserRole;
+      }
+```
+
+- and create a `next-auth.d.ts` file in root directory
+- and paste the code
+
+```
+import { UserRole } from "@prisma/client";
+import NextAuth from "next-auth";
+
+export type ExtendedUser = DefaultSession["user"] & {
+role: UserRole;  // this is the type of role
+};
+
+declare module "next-auth" {
+interface Session {
+  user: ExtendedUser;
+}
+}
+
+```
+#### Now you can see the role of the user in the session
+

@@ -2,13 +2,14 @@ import { auth, signOut } from '@/auth'
 import React from 'react'
 
 const Settings = async () => {
-    const user = await auth()
+    const session = await auth()
+    console.log(JSON.stringify(session?.user.role)) // session can be possibly null, so do optional chaining
     return (
         <div>
-            {JSON.stringify(user)}
+            {JSON.stringify(session)}
             <form action={async () => {
                 'use server'
-                await signOut()
+                await signOut() // exclusively for server actions
             }}>
                 <button type='submit'>
                     Singout
