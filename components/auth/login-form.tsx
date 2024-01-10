@@ -19,7 +19,14 @@ import Link from 'next/link';
 import { FormSuccess } from '../form-sucess';
 import { FormError } from '../form-error';
 import { Login } from '@/actions/auth/login';
+import { useSearchParams } from 'next/navigation';
+
+
 const LoginForm = () => {
+
+    // * for getting search params for error in case not logged in
+    const searchParams = useSearchParams()
+    const urlError = searchParams.get("error") === "OAuthAccountNotLinked" ? "Email already with different mail provider" : ""
 
     const [error, setError] = useState<string | undefined>("");
     const [success, setSuccess] = useState<string | undefined>("");
@@ -45,6 +52,8 @@ const LoginForm = () => {
 
                     if (data?.success) {
                         form.reset();
+
+                        // TODO: when 2FA is implemented
                         setSuccess(data.success);
                     }
                 })
@@ -107,7 +116,7 @@ const LoginForm = () => {
                         )}
                     />
                     <FormSuccess message={success} />
-                    <FormError message={error} />
+                    <FormError message={error || urlError} />
 
 
                     <Button

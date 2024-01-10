@@ -491,4 +491,49 @@ export const Social = () => {
 
 ```
 
-59. 
+59. linkAccount from Auth.js site can be used to directly register in case of google and github when the user does not exist and and there will be no need for register page
+
+- update auth.ts `events`
+
+```
+  // * This is for linkAccount feature
+ events:{
+   async linkAccount({user}){
+     await db.user.update({
+       where :{id : user.id},
+       data : {emailVerified: new Date()}
+     })
+   }
+ },
+```
+
+60. Add this too
+
+```
+ // * This is for solving errors when using linkAccount feature
+  pages: {
+    signIn: "/auth/login",
+    error: "/auth/error",
+  },
+```
+
+61. Create 2 new files, error-card.tsx and error.tsx in `auth`folder and `components/auth` folder respectively
+
+62. Update `routes.ts` file to
+
+```
+export const authRoutes = ["/auth/login", "/auth/register", "/auth/error"];
+```
+
+63. Get the error of 59 and display it in login form itself in `LoginForm.tsx` file
+
+```
+  // * for getting search params
+    const searchParams = useSearchParams()
+    const urlError = searchParams.get("error")
+
+```
+
+#### Oauth completed here.
+
+## Email verification
