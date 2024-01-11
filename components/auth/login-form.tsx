@@ -52,8 +52,6 @@ const LoginForm = () => {
 
                     if (data?.success) {
                         form.reset();
-
-                        // TODO: when 2FA is implemented
                         setSuccess(data.success);
                     }
                 })

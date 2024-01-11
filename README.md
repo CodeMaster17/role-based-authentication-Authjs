@@ -528,12 +528,171 @@ export const authRoutes = ["/auth/login", "/auth/register", "/auth/error"];
 63. Get the error of 59 and display it in login form itself in `LoginForm.tsx` file
 
 ```
-  // * for getting search params
+  // * for getting search params for error in case not logged in
     const searchParams = useSearchParams()
-    const urlError = searchParams.get("error")
+    const urlError = searchParams.get("error") === "OAuthAccountNotLinked" ? "Email already with different mail provider" : ""
 
+```
+
+and
+
+```
+      <FormError message={error || urlError} />
 ```
 
 #### Oauth completed here.
 
-## Email verification
+## Email verification for OAuth users
+
+64. Go to `schema.prisma` to add new model for `VerificiationToken`
+
+65. Push the schema to database
+    `npx prisma generate` and `npx prisma db push`
+
+66. create `verification-token.ts` file in `lib/actions/auth` folder
+
+```
+import { db } from "@/lib/database.connection";
+
+export const getVerificationTokenByToken = async (token: string) => {
+  try {
+    const verificationToken = await db.verificationToken.findUnique({
+      where: { token },
+    });
+
+    return verificationToken;
+  } catch {
+    return null;
+  }
+};
+
+export const getVerificationTokenByEmail = async (email: string) => {
+  try {
+    const verificationToken = await db.verificationToken.findFirst({
+      where: { email },
+    });
+
+    return verificationToken;
+  } catch {
+    return null;
+  }
+};
+```
+
+67. Create a `lib` to generate token in `lib/token` file
+
+- For generating token we use `uuid` package
+- `npm i uuid` and `npm i --save-dev @types/uuid`
+
+```
+import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
+import { db } from "./database.connection";
+import { getVerificationTokenByEmail } from "./actions/auth/verification-token";
+
+export const generateVerificationToken = async (email: string) => {
+  const token = uuidv4();
+  const expires = new Date(new Date().getTime() + 3600 * 1000);
+
+
+  const existingToken = await getVerificationTokenByEmail(email);
+
+  if (existingToken) {
+    await db.verificationToken.delete({
+      where: {
+        id: existingToken.id,
+      },
+    });
+  }
+
+  const verficationToken = await db.verificationToken.create({
+    data: {
+      email,
+      token,
+      expires,
+    },
+  });
+
+  return verficationToken;
+};
+
+
+```
+
+68. Now generate the token when user is created
+
+- Do it in `register.ts` file
+
+```
+const verificationToken = await generateVerificationToken(email);
+```
+
+69. Not allowing the user to login until he verifies his email
+    for that:
+
+```
+ // * not allowing the user to login if the email is not verified
+  const exisitingUser = await getUserByEmail(email);
+  if (!exisitingUser || !exisitingUser.password || !exisitingUser.email) {
+    return { error: "Email does not exist" };
+  }
+
+  if (!exisitingUser.emailVerified) {
+    const verificationToken = await generateVerificationToken(
+      exisitingUser.email
+    );
+    return { success: "Confirmation Email sent!" };
+  }
+  // *
+```
+
+70. adding callback to `auth.ts` file
+
+```
+ async signIn({ user, account }) {
+      if (account?.provider !== "credentials") return true;
+
+      const exisitingUser = await getUserById(user.id);
+
+      if (!exisitingUser?.emailVerified) return false;
+
+      // TODO : Add 2FA check
+
+      return true;
+    },
+```
+
+71. Setting up mail provider
+
+- using `resend`
+- `npm install resned`
+- add api key in .env file
+- before hosting, we can only send mail to oursleves, by the account which we have created in resend
+- after hosting and adding domain of '.com' we can send mail to anyone, but that also has some limitations
+- create `mail.ts` file in `lib` folder
+
+```
+import { Resend } from "resend";
+const resend = new Resend(process.env.RESEND_API_KEY);
+export const sendVerificationEmail = async (email: string, token: string) => {
+  const confirmLink = `http://localhost:3000/auth/new-verification?token=${token}`;
+
+  await resend.emails.send({
+    from: "onboarding@resend.dev",
+    to: email,
+    subject: "Confirm your email",
+    html: `<p>Click <a href="${confirmLink}">here</a> to confirm email.</p>`,
+  });
+};
+
+```
+
+73. Sending mail while logging in too, if email is not verfied in `login.ts` file
+
+```
+// * sending mail while logging in if email is not verified
+     await sendVerificationEmail(
+       verificationToken.email,
+       verificationToken.token
+     );
+```
