@@ -1,4 +1,5 @@
 # NextJs V5 Authentication
+![image](https://github.com/CodeMaster17/role-based-authentication-Authjs/assets/96763776/7d84ec51-ca1b-4a20-839b-1262523fc51b)
 
 7. Create Register page UI
 8. Install prisma
