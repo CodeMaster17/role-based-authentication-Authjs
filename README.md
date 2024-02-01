@@ -1,4 +1,5 @@
 # NextJs V5 Authentication
+
 ![image](https://github.com/CodeMaster17/role-based-authentication-Authjs/assets/96763776/7d84ec51-ca1b-4a20-839b-1262523fc51b)
 
 7. Create Register page UI
@@ -697,3 +698,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
        verificationToken.token
      );
 ```
+
+74. Add new route to `routes.ts` file i.e. `export const publicRoutes = ["/", "/auth/new-verfiiation"];`
+75. Create `new-verification.tsx` file in `pages/auth` folder
+76. Create `new-verification-form.tsx` file in `components/auth` folder

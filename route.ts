@@ -1,7 +1,7 @@
 // * an array of roues that are public
 // * These roues do not require authentication
 // @ @type {string[]}
-export const publicRoutes = ["/"];
+export const publicRoutes = ["/", "/auth/new-verification"];
 
 // * an array of roues that are used for authentication
 // * These routes will redirect logged in users to /settings
