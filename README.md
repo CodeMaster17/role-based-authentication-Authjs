@@ -702,3 +702,122 @@ export const sendVerificationEmail = async (email: string, token: string) => {
 74. Add new route to `routes.ts` file i.e. `export const publicRoutes = ["/", "/auth/new-verfiiation"];`
 75. Create `new-verification.tsx` file in `pages/auth` folder
 76. Create `new-verification-form.tsx` file in `components/auth` folder
+
+```
+'use client'
+import React, { useCallback, useEffect, useState } from 'react'
+import { CardWrapper } from './card-wrapper'
+import { BeatLoader } from 'react-spinners'
+import { useSearchParams } from 'next/navigation'
+
+const NewVerficationForm = () => {
+
+    const [error, setError] = useState<string | undefined>();
+    const [success, setSuccess] = useState<string | undefined>();
+
+    const searchParams = useSearchParams();
+
+    const token = searchParams.get("token");
+
+    const onSubmit = useCallback(() => {
+        if (success || error) return;
+
+        console.log("token", token)
+
+        if (!token) {
+            setError("Missing token!");
+            return;
+        }
+
+        // newVerification(token)
+        //     .then((data) => {
+        //         setSuccess(data.success);
+        //         setError(data.error);
+        //     })
+        //     .catch(() => {
+        //         setError("Something went wrong!");
+        //     })
+    }, [token, success, error]);
+
+    useEffect(() => {
+        onSubmit();
+    }, [onSubmit]);
+    return (
+        <CardWrapper
+            headerLabel="Confirming your verification"
+            backButtonLabel="Back to login"
+            backButtonHref="/auth/login"
+        >
+            <div className="flex items-center w-full justify-center">
+                <BeatLoader />
+            </div>
+        </CardWrapper>
+    )
+}
+
+export default NewVerficationForm
+
+```
+
+77. Create new action in `/actions/auth` folder
+
+```
+"use server";
+
+import { getVerificationTokenByToken } from "@/lib/actions/auth/verification-token";
+import { getUserByEmail } from "@/lib/actions/user.action";
+import { db } from "@/lib/database.connection";
+
+
+
+export const newVerification = async (token: string) => {
+  const existingToken = await getVerificationTokenByToken(token);
+
+  if (!existingToken) {
+    return { error: "Token does not exist!" };
+  }
+
+  const hasExpired = new Date(existingToken.expires) < new Date();
+
+  if (hasExpired) {
+    return { error: "Token has expired!" };
+  }
+
+  const existingUser = await getUserByEmail(existingToken.email);
+
+  if (!existingUser) {
+    return { error: "Email does not exist!" };
+  }
+
+  // when user updates his email, we create a token and send it to new mail, when user verifies it, we update the email
+  await db.user.update({
+    where: { id: existingUser.id },
+    data: {
+      emailVerified: new Date(),
+      email: existingToken.email,
+    },
+  });
+
+  await db.verificationToken.delete({
+    where: { id: existingToken.id },
+  });
+
+  return { success: "Email verified!" };
+};
+```
+
+78. Uncomment the lines code in `new-verification-form.tsx` file
+79. To show loader and message, add the following code in `new-verification-form.tsx` file
+
+````
+ <div className="flex items-center w-full justify-center">
+                {!success && !error && (
+                    <BeatLoader />
+                )}
+                <FormSuccess message={success} />
+                {!success && (
+                    <FormError message={error} />
+                )}
+            </div>
+            
+````
