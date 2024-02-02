@@ -59,3 +59,14 @@ model VerificationToken {
   expires DateTime
   @@unique([email, token]) // only unique token for specific email
 }
+
+// * for password reset 
+model PasswordResetToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+

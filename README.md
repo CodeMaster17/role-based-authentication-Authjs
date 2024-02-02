@@ -809,7 +809,7 @@ export const newVerification = async (token: string) => {
 78. Uncomment the lines code in `new-verification-form.tsx` file
 79. To show loader and message, add the following code in `new-verification-form.tsx` file
 
-````
+```
  <div className="flex items-center w-full justify-center">
                 {!success && !error && (
                     <BeatLoader />
@@ -819,5 +819,284 @@ export const newVerification = async (token: string) => {
                     <FormError message={error} />
                 )}
             </div>
-            
-````
+
+```
+
+## Reset password email functionality
+
+80. Create a new page `/auth/reset` in which you need to import the form from `components/auth` folder
+
+81. Create a new form in `components/auth` folder i.e `reset-form.tsx` which will only contain the email field
+
+82. Create a new action in `/actions/auth` folder i.e `reset.ts` file
+
+```
+"use server";
+
+import { getUserByEmail } from "@/lib/actions/user.action";
+import { ResetSchema } from "@/schema";
+import * as z from "zod";
+
+export const reset = async (values: z.infer<typeof ResetSchema>) => {
+  const validatedFields = ResetSchema.safeParse(values);
+
+  if (!validatedFields.success) {
+    return { error: "Invalid emaiL!" };
+  }
+
+  const { email } = validatedFields.data;
+
+  const existingUser = await getUserByEmail(email);
+
+  if (!existingUser) {
+    return { error: "Email not found!" };
+  }
+
+  //   const passwordResetToken = await generatePasswordResetToken(email);
+  //   await sendPasswordResetEmail(
+  //     passwordResetToken.email,
+  //     passwordResetToken.token
+  //   );
+
+  return { success: "Reset email sent!" };
+};
+
+```
+
+83. In `reset-form.tsx` file, add the following code
+
+```
+"use client";
+
+import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { useState, useTransition } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import { Input } from "@/components/ui/input";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { CardWrapper } from "@/components/auth/card-wrapper"
+import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
+import { ResetSchema } from "@/schema";
+import { FormSuccess } from "../form-sucess";
+import { reset } from "@/actions/auth/reset";
+
+
+export const ResetForm = () => {
+    const [error, setError] = useState<string | undefined>("");
+    const [success, setSuccess] = useState<string | undefined>("");
+    const [isPending, startTransition] = useTransition();
+
+    const form = useForm<z.infer<typeof ResetSchema>>({
+        resolver: zodResolver(ResetSchema),
+        defaultValues: {
+            email: "",
+        },
+    });
+
+    const onSubmit = (values: z.infer<typeof ResetSchema>) => {
+        setError("");
+        setSuccess("");
+
+        startTransition(() => {
+            reset(values)
+                .then((data) => {
+                    setError(data?.error);
+                    setSuccess(data?.success);
+                });
+        });
+    };
+
+    return (
+        <CardWrapper
+            headerLabel="Forgot your password?"
+            backButtonLabel="Back to login"
+            backButtonHref="/auth/login"
+        >
+            <Form {...form}>
+                <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-6"
+                >
+                    <div className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            disabled={isPending}
+                                            placeholder="john.doe@example.com"
+                                            type="email"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <FormError message={error} />
+                    <FormSuccess message={success} />
+                    <Button
+                        disabled={isPending}
+                        type="submit"
+                        className="w-full"
+                    >
+                        Send reset email
+                    </Button>
+                </form>
+            </Form>
+        </CardWrapper>
+    );
+};
+```
+
+84. Also create a new schema in `schema/index.ts` file
+
+```
+// reset schema
+export const ResetSchema = z.object({
+  email: z.string().email({
+    message: "Email is required",
+  }),
+});
+
+```
+
+85. Add the schema in `schema.prisma` file
+
+```
+// * for password reset
+model PasswordResetToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+
+```
+
+86. Now run the following command
+    `npx prisma generate` and `npx prisma db push`
+
+87. Create a new action in `lib/actions/auth` folder i.e `password-reset-token.ts` file using email and token
+
+```
+import { db } from "@/lib/database.connection";
+
+export const getPasswordResetTokenByToken = async (token: string) => {
+try {
+  const passwordResetToken = await db.passwordResetToken.findUnique({
+    where: { token },
+  });
+
+  return passwordResetToken;
+} catch {
+  return null;
+}
+};
+
+export const getPasswordResetTokenByEmail = async (email: string) => {
+try {
+  const passwordResetToken = await db.passwordResetToken.findFirst({
+    where: { email },
+  });
+
+  return passwordResetToken;
+} catch {
+  return null;
+}
+};
+```
+
+88. Create a new file `token.ts` in `lib` folder
+
+```
+import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
+import { db } from "./database.connection";
+import { getVerificationTokenByEmail } from "./actions/auth/verification-token";
+import { getPasswordResetTokenByEmail } from "./actions/auth/password-reset-token";
+
+export const generateVerificationToken = async (email: string) => {
+  const token = uuidv4();
+  const expires = new Date(new Date().getTime() + 3600 * 1000); // * expiring in 1 hour
+
+  const existingToken = await getVerificationTokenByEmail(email);
+
+  if (existingToken) {
+    await db.verificationToken.delete({
+      where: {
+        id: existingToken.id,
+      },
+    });
+  }
+
+  const verficationToken = await db.verificationToken.create({
+    data: {
+      email,
+      token,
+      expires,
+    },
+  });
+
+  return verficationToken;
+};
+
+
+// generating password reset token
+export const generatePasswordResetToken = async (email: string) => {
+  const token = uuidv4();
+  const expires = new Date(new Date().getTime() + 3600 * 1000);
+
+  const existingToken = await getPasswordResetTokenByEmail(email);
+
+  if (existingToken) {
+    await db.passwordResetToken.delete({
+      where: { id: existingToken.id },
+    });
+  }
+
+  const passwordResetToken = await db.passwordResetToken.create({
+    data: {
+      email,
+      token,
+      expires,
+    },
+  });
+
+  return passwordResetToken;
+};
+```
+89. Write mail to send mail verification in `mail.ts` file
+
+```
+// sending password reset email
+export const sendPasswordResetEmail = async (email: string, token: string) => {
+  const resetLink = `http://localhost:3000/auth/new-password?token=${token}`;
+
+  await resend.emails.send({
+    from: "onboarding@resend.dev",
+    to: email,
+    subject: "Reset your password",
+    html: `<p>Click <a href="${resetLink}">here</a> to reset password.</p>`,
+  });
+};
+```
+
+90. Uncomment the code in `reset.ts` file
+
