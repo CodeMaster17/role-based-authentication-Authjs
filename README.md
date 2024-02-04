@@ -1082,6 +1082,7 @@ export const generatePasswordResetToken = async (email: string) => {
   return passwordResetToken;
 };
 ```
+
 89. Write mail to send mail verification in `mail.ts` file
 
 ```
@@ -1100,3 +1101,178 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
 
 90. Uncomment the code in `reset.ts` file
 
+## Reset Password Form
+
+91. Add new route in `routes.ts` file i.e `export const resetRoutes = ["/auth/reset", "/auth/new-password"];`
+92. Create the new schema in `schema/index.ts` file
+
+```
+// new password schema
+export const NewPasswordSchema = z.object({
+  password: z.string().min(6, {
+    message: "Minimum of 6 characters required",
+  }),
+});
+
+```
+
+93. Create a new file in `components/auth` folder i.e `new-password-form.tsx` file which will be imported to `/auth/new-password.tsx` file
+
+```
+'use client'
+import React, { useState, useTransition } from 'react'
+import { CardWrapper } from './card-wrapper';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Input } from "@/components/ui/input";
+import { useForm } from 'react-hook-form';
+import { NewPasswordSchema } from '@/schema';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+import { FormError } from '../form-error';
+import { FormSuccess } from '../form-sucess';
+import { Button } from '../ui/button';
+import { useSearchParams } from 'next/navigation';
+import { newPassword } from '@/actions/auth/new-password';
+
+const NewPasswordForm = () => {
+    const searchParams = useSearchParams();
+    const token = searchParams.get("token");
+
+    const [error, setError] = useState<string | undefined>("");
+    const [success, setSuccess] = useState<string | undefined>("");
+    const [isPending, startTransition] = useTransition();
+
+    const form = useForm<z.infer<typeof NewPasswordSchema>>({
+        resolver: zodResolver(NewPasswordSchema),
+        defaultValues: {
+            password: "",
+        },
+    });
+
+    const onSubmit = (values: z.infer<typeof NewPasswordSchema>) => {
+        setError("");
+        setSuccess("");
+
+        startTransition(() => {
+            newPassword(values, token)
+                .then((data) => {
+                    setError(data?.error);
+                    setSuccess(data?.success);
+                });
+        });
+    };
+
+    return (
+        <CardWrapper
+            headerLabel="Enter a new password"
+            backButtonLabel="Back to login"
+            backButtonHref="/auth/login"
+        >
+            <Form {...form}>
+                <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-6"
+                >
+                    <div className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="password"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Password</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            disabled={isPending}
+                                            placeholder="******"
+                                            type="password"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <FormError message={error} />
+                    <FormSuccess message={success} />
+                    <Button
+                        disabled={isPending}
+                        type="submit"
+                        className="w-full"
+                    >
+                        Reset password
+                    </Button>
+                </form>
+            </Form>
+        </CardWrapper>
+    )
+}
+
+export default NewPasswordForm
+
+```
+
+94. Create a new action in `/actions/auth` folder i.e `new-password.ts` file
+
+```
+"use server";
+
+import * as z from "zod";
+import bcrypt from "bcryptjs";
+import { NewPasswordSchema } from "@/schema";
+import { getPasswordResetTokenByToken } from "@/lib/actions/auth/password-reset-token";
+import { getUserByEmail } from "@/lib/actions/user.action";
+import { db } from "@/lib/database.connection";
+
+
+export const newPassword = async (
+  values: z.infer<typeof NewPasswordSchema>,
+  token?: string | null
+) => {
+  if (!token) {
+    return { error: "Missing token!" };
+  }
+
+  const validatedFields = NewPasswordSchema.safeParse(values);
+
+  if (!validatedFields.success) {
+    return { error: "Invalid fields!" };
+  }
+
+  const { password } = validatedFields.data;
+
+  const existingToken = await getPasswordResetTokenByToken(token);
+
+  if (!existingToken) {
+    return { error: "Invalid token!" };
+  }
+
+  const hasExpired = new Date(existingToken.expires) < new Date();
+
+  if (hasExpired) {
+    return { error: "Token has expired!" };
+  }
+
+  const existingUser = await getUserByEmail(existingToken.email);
+
+  if (!existingUser) {
+    return { error: "Email does not exist!" };
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await db.user.update({
+    where: { id: existingUser.id },
+    data: { password: hashedPassword },
+  });
+
+  await db.passwordResetToken.delete({
+    where: { id: existingToken.id },
+  });
+
+  return { success: "Password updated!" };
+};
+```
+
+It shoul now start working.
