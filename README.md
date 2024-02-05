@@ -1276,3 +1276,242 @@ export const newPassword = async (
 ```
 
 It shoul now start working.
+
+## 2Factor Authentication
+
+95. Update `schema.prisma` file
+
+- user model
+
+```
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  accounts      Account[]
+  role          UserRole @default(USER)
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorConfirmation TwoFactorConfirmation?
+}
+```
+
+- isTwoFactorEnabled model
+
+```
+model TwoFactorToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+```
+
+- TwoFactorConfirmation model
+
+```
+model TwoFactorConfirmation {
+  id String @id @default(cuid())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+```
+
+96. Now run the following command
+    `npx prisma generate` and `npx prisma db push`
+
+97. # Setting up two-factor-token
+
+- Create a new file in `lib/actions/auth` folder i.e `two-factor-token.ts` file
+
+```
+import { db } from "@/lib/database.connection";
+
+export const getTwoFactorTokenByToken = async (token: string) => {
+  try {
+    const twoFactorToken = await db.twoFactorToken.findUnique({
+      where: { token },
+    });
+
+    return twoFactorToken;
+  } catch {
+    return null;
+  }
+};
+
+export const getTwoFactorTokenByEmail = async (email: string) => {
+  try {
+    const twoFactorToken = await db.twoFactorToken.findFirst({
+      where: { email },
+    });
+
+    return twoFactorToken;
+  } catch {
+    return null;
+  }
+};
+```
+
+- Setting up the action for confirming two-factor token in `lib/actions/auth` folder `two-factor-confirmation.ts` file
+
+```
+import { db } from "@/lib/database.connection";
+
+export const getTwoFactorConfirmationByUserId = async (userId: string) => {
+ try {
+   const twoFactorConfirmation = await db.twoFactorConfirmation.findUnique({
+     where: { userId },
+   });
+
+   return twoFactorConfirmation;
+ } catch {
+   return null;
+ }
+};
+
+```
+
+- Generating Two factor token in `lib/token` file
+
+```
+export const generateTwoFactorToken = async (email: string) => {
+  const token = crypto.randomInt(100_000, 1_000_000).toString();
+  const expires = new Date(new Date().getTime() + 5 * 60 * 1000);
+
+  const existingToken = await getTwoFactorTokenByEmail(email);
+
+  if (existingToken) {
+    await db.twoFactorToken.delete({
+      where: {
+        id: existingToken.id,
+      }
+    });
+  }
+
+  const twoFactorToken = await db.twoFactorToken.create({
+    data: {
+      email,
+      token,
+      expires,
+    }
+  });
+
+  return twoFactorToken;
+}
+```
+
+- Sned two factor token email
+
+```
+export const sendTwoFactorTokenEmail = async (
+  email: string,
+  token: string
+) => {
+  await resend.emails.send({
+    from: "mail@auth-masterclass-tutorial.com",
+    to: email,
+    subject: "2FA Code",
+    html: `<p>Your 2FA code: ${token}</p>`
+  });
+};
+```
+
+98. Go to prisma studio and enable the 2FA for a user
+
+99. Modify the login function in `auth.ts` file
+
+```
+
+      // * Prevent sign in without two factor confirmation  (99)
+      if (existingUser.isTwoFactorEnabled) {
+        const twoFactorConfirmation = await getTwoFactorConfirmationByUserId(
+          existingUser.id
+        );
+
+        if (!twoFactorConfirmation) return false;
+
+        // Delete two factor confirmation for next sign in
+        await db.twoFactorConfirmation.delete({
+          where: { id: twoFactorConfirmation.id },
+        });
+      }
+```
+
+100. Add 2FA Verification in `login.ts` file
+
+```
+ //* 2FA verification
+  if (exisitingUser.isTwoFactorEnabled && exisitingUser.email) {
+    if (code) {
+      const twoFactorToken = await getTwoFactorTokenByEmail(exisitingUser.email);
+
+      if (!twoFactorToken) {
+        return { error: "Invalid code!" };
+      }
+
+      if (twoFactorToken.token !== code) {
+        return { error: "Invalid code!" };
+      }
+
+      const hasExpired = new Date(twoFactorToken.expires) < new Date();
+
+      if (hasExpired) {
+        return { error: "Code expired!" };
+      }
+
+      await db.twoFactorToken.delete({
+        where: { id: twoFactorToken.id },
+      });
+
+      const existingConfirmation = await getTwoFactorConfirmationByUserId(
+        exisitingUser.id
+      );
+
+      if (existingConfirmation) {
+        await db.twoFactorConfirmation.delete({
+          where: { id: existingConfirmation.id },
+        });
+      }
+
+      await db.twoFactorConfirmation.create({
+        data: {
+          userId: exisitingUser.id,
+        },
+      });
+    } else {
+      const twoFactorToken = await generateTwoFactorToken(exisitingUser.email);
+      await sendTwoFactorTokenEmail(twoFactorToken.email, twoFactorToken.token);
+
+      return { twoFactor: true };
+    }
+  }
+```
+
+101. Update the login schema
+
+```
+export const LoginSchema = z.object({
+email: z.string().email({
+  message: "Email is required",
+}),
+password: z.string().min(1, {
+  message: "Password is required",
+}),
+code: z.optional(z.string()),
+});
+
+```
+102. Update the login form, based on the conditions (see the code directly from file)
+- concept is to show 2FA code, when after the login button is clicked, and two factor is enabled
+- (might be incomplete)
+
+
+
+
