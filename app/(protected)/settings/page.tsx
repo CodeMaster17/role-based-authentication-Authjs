@@ -7,14 +7,11 @@ const Settings = async () => {
     return (
         <div>
             {JSON.stringify(session)}
-            <form action={async () => {
-                'use server'
-                await signOut() // exclusively for server actions
-            }}>
-                <button type='submit'>
-                    Singout
-                </button>
-            </form>
+
+            <button type='submit'>
+                Singout
+            </button>
+
         </div>
     )
 }
