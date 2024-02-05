@@ -1,36 +1,47 @@
-import router, { useRouter } from 'next/navigation'
-import React from 'react'
+"use client";
+
+import { useRouter } from "next/navigation";
+
+import {
+    Dialog,
+    DialogContent,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { LoginForm } from "@/components/auth/login-form";
 
 interface LoginButtonProps {
-    children: React.ReactNode
-    mode?: 'modal' | 'redirect'
-    asChild?: boolean
-}
+    children: React.ReactNode;
+    mode?: "modal" | "redirect",
+    asChild?: boolean;
+};
 
-const LoginButton = ({ children, mode = "redirect", asChild }: LoginButtonProps) => {
+export const LoginButton = ({
+    children,
+    mode = "redirect",
+    asChild
+}: LoginButtonProps) => {
+    const router = useRouter();
 
-    const router = useRouter()
+    const onClick = () => {
+        router.push("/auth/login");
+    };
 
-    if (mode === 'modal') {
+    if (mode === "modal") {
         return (
-            <>
-                <p>
-                    Modal
-                </p>
-            </>
+            <Dialog>
+                <DialogTrigger asChild={asChild}>
+                    {children}
+                </DialogTrigger>
+                <DialogContent className="p-0 w-auto bg-transparent border-none">
+                    <LoginForm />
+                </DialogContent>
+            </Dialog>
         )
     }
 
-
-    const onClick = () => [
-        router.push('/auth/login')
-    ]
-
     return (
-        <span onClick={onClick} className='cursor-pointer'>
+        <span onClick={onClick} className="cursor-pointer">
             {children}
         </span>
-    )
-}
-
-export default LoginButton
+    );
+};

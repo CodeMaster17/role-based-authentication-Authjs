@@ -32,9 +32,18 @@ export default auth((req) => {
   }
 
   if (!isLoggedIn && !isPublicRoute) {
-    return Response.redirect(new URL("/auth/login", nextUrl));
-  }
+    // this is done to redirect to the same page after login
+    let callbackUrl = nextUrl.pathname;
+    if (nextUrl.search) {
+      callbackUrl += nextUrl.search;
+    }
 
+    const encodedCallbackUrl = encodeURIComponent(callbackUrl);
+
+    return Response.redirect(
+      new URL(`/auth/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
+    );
+  }
   return null;
 });
 

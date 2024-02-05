@@ -3,18 +3,18 @@
 import { signIn } from "next-auth/react"; // this is we have to import when in client side
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
-// import { useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { DEFAULT_LOGIN_REDIRECT } from "@/route";
 
 export const Social = () => {
-    // const searchParams = useSearchParams();
-    // const callbackUrl = searchParams.get("callbackUrl");
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get("callbackUrl");
 
     const onClick = (provider: "google" | "github") => {
         signIn(provider, {
-            callbackUrl: DEFAULT_LOGIN_REDIRECT,
+            callbackUrl: callbackUrl || DEFAULT_LOGIN_REDIRECT,
         });
     }
 
