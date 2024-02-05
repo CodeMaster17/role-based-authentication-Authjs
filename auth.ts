@@ -6,12 +6,14 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { getUserById } from "./lib/actions/user.action";
 import { UserRole } from "@prisma/client";
 import { getTwoFactorConfirmationByUserId } from "./lib/actions/auth/two-factor-confirmation";
+import { getAccountByUserId } from "./lib/account";
 
 export const {
   handlers: { GET, POST },
   auth,
   signIn,
   signOut,
+  update,
 } = NextAuth({
   // * This is for solving errors when using linkAccount feature
   pages: {
@@ -85,7 +87,14 @@ export const {
       if (!token.sub) return token;
       const exisitingUser = await getUserById(token.sub);
       if (!exisitingUser) return token;
+
+      const existingAccount = await getAccountByUserId(exisitingUser.id);
+
+      token.isOAuth = !!existingAccount;
       token.role = exisitingUser.role;
+      token.name = exisitingUser.name;
+      token.email = exisitingUser.email;
+      token.isTwoFactorEnabled = exisitingUser.isTwoFactorEnabled;
 
       return token;
     },
